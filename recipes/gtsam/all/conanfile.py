@@ -99,30 +99,43 @@ class gtsamConan(ConanFile):
             self._cmake.definitions["GTSAM_INSTALL_CPPUNITLITE"] = self.options.install_cppunitlite
             self._cmake.definitions["GTSAM_INSTALL_GEOGRAPHICLIB"] = self.options.install_geographiclib
             self._cmake.definitions["GTSAM_USE_SYSTEM_EIGEN"] = False
-            self._cmake.configure(source_folder=self._source_subfolder, build_folder=self._build_subfolder)
+            self._cmake.configure(build_folder=self._build_subfolder)
         return self._cmake
 
     def config_options(self):
         if self.settings.os == "Windows":
             del self.options.fPIC
-            if self.settings.compiler == "Visual Studio" and tools.Version(self.settings.compiler.version) < 15:
-                raise ConanInvalidConfiguration ("GTSAM requirews MSVC >= 15")
+        if self.settings.compiler == "Visual Studio" and tools.Version(self.settings.compiler.version) < 15:
+            raise ConanInvalidConfiguration("GTSAM requirews MSVC >= 15")
 
     def configure(self):
+        if self.options.shared:
+            del self.options.fPIC
         self.requires("boost/1.72.0")
         self.requires("eigen/3.3.7")
-        if(self.options.with_TBB):
+        if self.options.with_TBB:
             self.requires("tbb/2020.0")
-            self.options["tbb"].tbbmalloc = True
+            if not self.options["tbb"].tbbmalloc:
+                raise ConanInvalidConfiguration("GTSAM requires tbb.tbbmaloc = True")
 
     def source(self):
         tools.get(**self.conan_data["sources"][self.version])
         extracted_dir = self.name + "-" + self.version
         os.rename(extracted_dir, self._source_subfolder)
 
+    def _patch_sources(self):
+        for cmake in (os.path.join(self._source_subfolder, "gtsam", "CMakeLists.txt"),
+                      os.path.join(self._source_subfolder, "wrap", "CMakeLists.txt"),
+                      os.path.join(self._source_subfolder, "cmake", "GtsamPythonWrap.cmake")):
+            tools.replace_in_file(cmake,
+                                  "${CMAKE_SOURCE_DIR}",
+                                  "${GTSAM_SOURCE_DIR}")
+        tools.replace_in_file(os.path.join(self._source_subfolder, "gtsam", "CMakeLists.txt"),
+                              "${CMAKE_BINARY_DIR}",
+                              "${GTSAM_BINARY_DIR}")
+
     def build(self):
-        for patch in self.conan_data["patches"][self.version]:
-            tools.patch(**patch)
+        self._patch_sources()
         cmake = self._configure_cmake()
         cmake.build()
 
@@ -131,6 +144,7 @@ class gtsamConan(ConanFile):
         cmake.install()
         self.copy("LICENSE", src=self._source_subfolder, dst="licenses")
         self.copy("LICENSE.BSD", src=self._source_subfolder, dst="licenses")
+        tools.rmdir(os.path.join(self.package_folder, "CMake"))
         tools.rmdir(os.path.join(self.package_folder, "lib", "cmake"))
         tools.rmdir(os.path.join(self.package_folder, "bin"))
 
