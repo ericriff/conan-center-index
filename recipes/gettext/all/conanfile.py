@@ -30,6 +30,10 @@ class GetTextConan(ConanFile):
     def _make_args(self):
         return None
 
+    @property
+    def _datarootdir(self):
+        return os.path.join(self.package_folder, "bin", "share")
+
     def configure(self):
         del self.settings.compiler.libcxx
         del self.settings.compiler.cppstd
@@ -61,7 +65,8 @@ class GetTextConan(ConanFile):
                 "--disable-csharp",
                 "--disable-libasprintf",
                 "--disable-curses",
-                "--with-libiconv-prefix=%s" % libiconv_prefix]
+                "--with-libiconv-prefix=%s" % libiconv_prefix,
+                "--datarootdir={}".format(tools.unix_path(self._datarootdir)),]
         build = None
         host = None
         rc = None
@@ -106,9 +111,15 @@ class GetTextConan(ConanFile):
                 with tools.chdir(os.path.join(self._source_subfolder)):
                     env_build = self._configure_autotools()
                     env_build.install()
-        tools.rmdir(os.path.join(self.package_folder, 'share'))
         tools.rmdir(os.path.join(self.package_folder, 'lib'))
         tools.rmdir(os.path.join(self.package_folder, 'include'))
+        # We only want to keep archive.dir.tar.xz and the easier way to clean up bin/share is to move that file out,
+        # remove the whole folder and move the tar file back in.
+        self.copy(pattern="archive.dir.tar.xz", src=os.path.join(self._datarootdir, "gettext"), dst=self.package_folder)
+        tools.rmdir(self._datarootdir)
+        os.makedirs(os.path.join(self._datarootdir, "gettext"))
+        shutil.move(src = os.path.join(self.package_folder, "archive.dir.tar.xz"),
+                    dst = os.path.join(self._datarootdir, "gettext", "archive.dir.tar.xz"))
 
     def package_id(self):
         self.info.include_build_settings()
@@ -119,4 +130,6 @@ class GetTextConan(ConanFile):
         self.output.info('Appending PATH environment variable: {}'.format(bindir))
         self.env_info.PATH.append(bindir)
 
-
+        gettext_datadir = tools.unix_path(self._datarootdir)
+        self.output.info("Setting GETTEXT_DATADIR to {}".format(gettext_datadir))
+        self.env_info.GETTEXT_DATADIR = gettext_datadir
