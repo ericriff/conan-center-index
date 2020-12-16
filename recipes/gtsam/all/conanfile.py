@@ -156,3 +156,6 @@ class gtsamConan(ConanFile):
         self.cpp_info.libs = tools.collect_libs(self)
         self.cpp_info.names["cmake_find_package"] = "GTSAM"
         self.cpp_info.names["cmake_find_package_multi"] = "GTSAM"
+        # GTSAM only needs a subset of boost, so we manually specify the requirements list.
+        self.cpp_info.requires = ["eigen::eigen"]
+        self.cpp_info.requires.extend(['boost::serialization', 'boost::filesystem', 'boost::system', 'boost::timer','boost::thread', 'boost::date_time'])
