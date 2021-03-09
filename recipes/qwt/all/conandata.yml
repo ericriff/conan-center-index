@@ -1,0 +1,4 @@
+sources:
+  "6.1.6":
+    url: "https://razaoinfo.dl.sourceforge.net/project/qwt/qwt/6.1.6/qwt-6.1.6.tar.bz2"
+    sha256: "99460d31c115ee4117b0175d885f47c2c590d784206f09815dc058fbe5ede1f6"
