@@ -1,0 +1,79 @@
+From 66e03e9d583c7100e0cae6ab8460d310744e2b7c Mon Sep 17 00:00:00 2001
+From: Tom spot Callaway <spot@fedoraproject.org>
+Date: Tue, 6 Jul 2021 15:07:13 -0400
+Subject: [PATCH 1/2] Check system for kvspic
+
+---
+ CMakeLists.txt | 31 +++++++++++++++++++++----------
+ 1 file changed, 21 insertions(+), 10 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index ee5169fd..cd29bba9 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -93,22 +93,33 @@ if(BUILD_DEPENDENCIES)
+   message(STATUS "Finished building dependencies.")
+ endif()
+ 
+-############# fetch repos that we need do add_subdirectory ############
++find_package(PkgConfig REQUIRED)
++
++############# Check system for kvspic #############
+ 
+-# repos that we will build using add_subdirectory will be stored in this path
+-set(DEPENDENCY_DOWNLOAD_PATH ${CMAKE_CURRENT_SOURCE_DIR}/dependency)
+-set(BUILD_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE})
+-fetch_repo(kvspic ${BUILD_ARGS})
+-add_subdirectory("${DEPENDENCY_DOWNLOAD_PATH}/libkvspic/kvspic-src")
+-file(GLOB PIC_HEADERS "${pic_project_SOURCE_DIR}/src/*/include")
+-include_directories("${PIC_HEADERS}")
++pkg_check_modules(KVSPIC libkvspicUtils)
++if(KVSPIC_FOUND)
++  set(OPEN_SRC_INCLUDE_DIRS ${OPEN_SRC_INCLUDE_DIRS} ${KVSPIC_INCLUDE_DIRS})
++  link_directories(${KVSPIC_LIBRARY_DIRS})
++else()
++  ############# fetch repos that we need do add_subdirectory ############
+ 
+-############# fetch repos that we need do add_subdirectory done ############
++  # repos that we will build using add_subdirectory will be stored in this path
++  set(DEPENDENCY_DOWNLOAD_PATH ${CMAKE_CURRENT_SOURCE_DIR}/dependency)
++  set(BUILD_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE})
++  fetch_repo(kvspic ${BUILD_ARGS})
++  add_subdirectory("${DEPENDENCY_DOWNLOAD_PATH}/libkvspic/kvspic-src")
++  file(GLOB PIC_HEADERS "${pic_project_SOURCE_DIR}/src/*/include")
++  include_directories("${PIC_HEADERS}")
++
++  ############# fetch repos that we need do add_subdirectory done ############
++endif()
++
++############# Check system for kvspic done #############
+ 
+ ############# find dependent libraries ############
+ 
+ find_package(Threads)
+-find_package(PkgConfig REQUIRED)
+ 
+ set(OPEN_SRC_INCLUDE_DIRS ${LIBKVSPIC_INCLUDE_DIRS})
+ 
+
+From 3d11e0d3605800f392d83ecf3969ed43f934a8c1 Mon Sep 17 00:00:00 2001
+From: Divya Sampath Kumar <disa6302@colorado.edu>
+Date: Mon, 9 Aug 2021 10:03:36 -0700
+Subject: [PATCH 2/2] Re-pushing changes to let CI pass
+
+---
+ CMakeLists.txt | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index cd29bba9..a8ce3cdc 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -103,7 +103,6 @@ if(KVSPIC_FOUND)
+   link_directories(${KVSPIC_LIBRARY_DIRS})
+ else()
+   ############# fetch repos that we need do add_subdirectory ############
+-
+   # repos that we will build using add_subdirectory will be stored in this path
+   set(DEPENDENCY_DOWNLOAD_PATH ${CMAKE_CURRENT_SOURCE_DIR}/dependency)
+   set(BUILD_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE})
