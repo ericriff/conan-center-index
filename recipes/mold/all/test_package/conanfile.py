@@ -1,16 +1,10 @@
-from conan import ConanFile
-from conan.tools.build import can_run
+import os
+from conans import ConanFile, tools
+from conan.tools.build import cross_building
 
-
-class MoldTestConan(ConanFile):
-    settings = "os", "compiler", "build_type", "arch"
-    generators = "VirtualBuildEnv"
-    test_type = "explicit"
-
-    def build_requirements(self):
-        self.tool_requires(self.tested_reference_str)
+class TestPackageConan(ConanFile):
+    settings = "os", "arch", "build_type", "compiler"
 
     def test(self):
-        if can_run(self):
-            self.run("mold -v")
-
+        if not cross_building(self):
+            self.run("mold -v", run_environment=True)

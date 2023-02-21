@@ -1,0 +1,4 @@
+sources:
+  "0.1":
+    url: "https://www.dropbox.com/s/5cpjimuztovkzq9/tdx-xwayland-glibc-x86_64-core-image-minimal-cortexa72-cortexa53-apalis-imx8-toolchain-6.2.0.sh?dl=1"
+    sha256: "262a210d58740f246370eeb563988fb62ebc54a5f68fe098b1ce9ab6b6318f93"
