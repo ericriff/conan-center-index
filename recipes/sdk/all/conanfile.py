@@ -23,8 +23,9 @@ class Pkg(ConanFile):
         self.tool_requires("sdk-base/0.1")
 
     def package(self):
-        # Whatever modification, customization, RPATHs, symlinks, etc
         pkg_folder = self.dependencies.build["sdk-base"].package_folder
+
+        # I'm wondering if we can avoid this since it can take a non trivial amount of time on fat SDKs
         shutil.copytree(src=pkg_folder, dst=self.package_folder, dirs_exist_ok=True, ignore_dangling_symlinks=True)
         self.output.info(f'Relocating SDk package')
 
