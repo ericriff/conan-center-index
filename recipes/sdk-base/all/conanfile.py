@@ -1,8 +1,8 @@
 from conan import ConanFile
 from conan.tools.files import load, save,  get, copy, download, check_sha256, replace_in_file, chdir
+from conan.tools.files.symlinks import absolute_to_relative_symlinks,remove_broken_symlinks,remove_external_symlinks
 
 import os
-import re
 import stat
 
 class Pkg(ConanFile):
@@ -16,59 +16,6 @@ class Pkg(ConanFile):
     @property
     def _triplet(self):
         return 'aarch64-tdx-linux'
-
-    def _make_absolute_symlinks_relative(self):
-        '''Transform the absolute symlinks into relative ones'''
-        fixedLinks = []
-        topdir = os.getcwd()
-        self.output.info("Looking for absolute symlinks in {}".format(topdir))
-        for root, dirs, files in os.walk(topdir):
-            for filename in files:
-                linkPath = os.path.join(root, filename)
-                if os.path.islink(linkPath):
-                    pointedPath = os.readlink(linkPath)
-                    if not pointedPath.startswith("/home"):
-                        continue
-                    relativePath = os.path.relpath(os.path.dirname(pointedPath), os.path.dirname(linkPath))
-                    if relativePath == ".":
-                        relativePath = ""
-                    os.unlink(linkPath)
-                    newPointedPath = os.path.join(relativePath, os.path.basename(pointedPath))
-                    os.symlink(newPointedPath, linkPath)
-                    self.output.info("Replaced symlink to: {} located in: {} with: {}".format(pointedPath, os.path.dirname(linkPath), newPointedPath))
-                    fixedLinks.append(os.path.basename(pointedPath))
-        self.output.info("{} absolute symlink(s) found (and fixed): ".format(len(fixedLinks)))
-        self.output.info(fixedLinks)
-
-    def _broken_symlinks_remover(self):
-        '''Remove every broken symlink in the current directory'''
-        self.output.info("Looking for broken symlinks in {}".format(os.getcwd()))
-        links = []
-        broken = []
-        for root, dirs, files in os.walk('.'):
-            if root.startswith('./.git'):
-                # Ignore the .git directory.
-                continue
-            for filename in files:
-                path = os.path.join(root,filename)
-                if os.path.islink(path):
-                    target_path = os.readlink(path)
-                    # Resolve relative symlinks
-                    if not os.path.isabs(target_path):
-                        target_path = os.path.join(os.path.dirname(path),target_path)
-                    if not os.path.exists(target_path):
-                        links.append(path)
-                        broken.append(path)
-                    else:
-                        links.append(path)
-                else:
-                    # If it's not a symlink we're not interested.
-                    continue
-        self.output.info(str(len(links)) + ' symlinks found...')
-        self.output.info("broken symlink(s) found (and removed):")
-        for link in broken:
-            self.output.info(link)
-            os.unlink(link)
 
     def source(self):
         # Get the self exracting SDK. The regular `get` method doesn't work
@@ -98,13 +45,10 @@ class Pkg(ConanFile):
         cmd = f"./{self._filenale} -y -d {self.package_folder} -S -R"
         self.run(cmd)
 
-        # Replace absolute symlinks with relative ones to make the package relocatable
-        with chdir(self, os.path.join(self.package_folder, "sysroots", "x86_64-tdxsdk-linux")):
-            self._make_absolute_symlinks_relative()
-
-        # Remove broken symlinks, they cause problems further down the road
-        with chdir(self, self.package_folder):
-            self._broken_symlinks_remover()
+        # Handle absolute and broken symlinks
+        absolute_to_relative_symlinks(self, self.package_folder)
+        remove_external_symlinks(self, self.package_folder)
+        remove_broken_symlinks(self, self.package_folder)
 
         # The "new path" for the toolchain gets hardcoded into relocate_sdk.sh at the time of
         # extracting the SDK. That path will only make sense on the PC where this package was created
