@@ -71,17 +71,20 @@ class Pkg(ConanFile):
             os.unlink(link)
 
     def source(self):
-        # Get the self exracting SDK
+        # Get the self exracting SDK. The regular `get` method doesn't work
+        # since this is not a tarball. This method also fails to infer the filename
+        # so we give it a generic 'sdk.sh' name.
         url = self.conan_data["sources"][self.version]["url"]
         sha256 = self.conan_data["sources"][self.version]["sha256"]
         download(self, url, self._filenale)
         check_sha256(self, 'sdk.sh', sha256)
 
     def package(self):
-        #chmod +x
+        # chmod +x
         st = os.stat(self._filenale)
         os.chmod(self._filenale, st.st_mode | stat.S_IEXEC)
 
+        # Extract the SDK, without relocating and keeping the reloc scripts.
         # "  -y         Automatic yes to all prompts"
         # "  -d <dir>   Install the SDK to <dir>"
         # "======== Extensible SDK only options ============"
@@ -95,68 +98,24 @@ class Pkg(ConanFile):
         cmd = f"./{self._filenale} -y -d {self.package_folder} -S -R"
         self.run(cmd)
 
-
-        # Fix absolute symlinks that make the package non-relocatable
+        # Replace absolute symlinks with relative ones to make the package relocatable
         with chdir(self, os.path.join(self.package_folder, "sysroots", "x86_64-tdxsdk-linux")):
             self._make_absolute_symlinks_relative()
 
-        # Conan doesn't allow broken symlinks on packages.
+        # Remove broken symlinks, they cause problems further down the road
         with chdir(self, self.package_folder):
             self._broken_symlinks_remover()
 
-        # Replace the current hardcoded absolute path in the relocation script with a variable
-        # expansion.
+        # The "new path" for the toolchain gets hardcoded into relocate_sdk.sh at the time of
+        # extracting the SDK. That path will only make sense on the PC where this package was created
+        # but we want to relocate on the PC that consumes the package, so we replace it with an env variable.
         replace_in_file(self,
                         os.path.join(self.package_folder, "relocate_sdk.sh"),
                         self.package_folder,
                         "${PACKAGE_FOLDER:?PACKAGE_FOLDER is required}")
         # We also need to convert all single quotes to double quotes so that the shell
-        # will expand this variable.
+        # expands this variable.
         replace_in_file(self,
                         os.path.join(self.package_folder, "relocate_sdk.sh"),
                         "'",
                         '"')
-
-#        # We also need to patch 'relocate_sdk.py` as it knows the "old_prefix" and will only change
-#        # required paths in some places if they match that.  So if we want to relocate a second time
-#        # (which we will do in practice), we need to tell it the current prefix so that it can patch
-#        # it again.
-#        #
-#        # We are looking for a line in the file that looks like this and trying to extract
-#        # /path/we/care/about:
-#        #
-#        # old_prefix = re.compile(b("/path/we/care/about"))
-#        relocate_sdk_py_contents = load(self, os.path.join(self.package_folder, 'relocate_sdk.py'))
-#        old_prefix_str = re.search(r'^old_prefix[ ]*=[^"]*("[^"]+").*$', relocate_sdk_py_contents, re.MULTILINE)[1]
-#
-#        # Write a file with the old_prefix_str as supplied by the downloaded package indicating that
-#        # we have not relocated this package yet - note that we strip the double quotes.
-#        save(self, os.path.join(self.package_folder, 'current_relocated_path.txt'), old_prefix_str.strip('"'))
-
-#    def package_info(self):
-#        # Should this be here or in the wrapper 'sdk' recipe?
-#        bin_path = os.path.join(self.package_folder, "sysroots", "x86_64-tdxsdk-linux", "usr", "bin", self._triplet)
-#        sysroot = os.path.join(self.package_folder, "sysroots", "cortexa72-cortexa53-tdx-linux")
-#
-#        self.cpp_info.bindirs.append(bin_path)
-#
-#        self.buildenv_info.CC = f"{self._triplet}-gcc"
-#        self.buildenv_info.CXX = f"{self._triplet}-g++"
-#        self.buildenv_info.CPP = f"{self._triplet}-gcc -E"
-#        self.buildenv_info.AS = f"{self._triplet}-as"
-#        self.buildenv_info.LD = f"{self._triplet}-ld"
-#        self.buildenv_info.GDB = f"{self._triplet}-gdb"
-#        self.buildenv_info.STRIP = f"{self._triplet}-strip"
-#        self.buildenv_info.RANLIB = f"{self._triplet}-ranlib"
-#        self.buildenv_info.OBJCOPY = f"{self._triplet}-objcopy"
-#        self.buildenv_info.OBJDUMP = f"{self._triplet}-objdump"
-#        self.buildenv_info.READELF = f"{self._triplet}-readelf"
-#        self.buildenv_info.AR = f"{self._triplet}-ar"
-#        self.buildenv_info.NM = f"{self._triplet}-nm"
-#        self.buildenv_info.M4 = "m4"
-#        self.buildenv_info.SYSROOT = sysroot
-#
-#        self.buildenv_info.CFLAGS = f"--sysroot={sysroot}"
-#        self.buildenv_info.CPPFLAGS = f"--sysroot={sysroot}"
-#        self.buildenv_info.CXXFLAGS = f"--sysroot={sysroot}"
-#        self.buildenv_info.LDFLAGS = f"--sysroot={sysroot}"
