@@ -27,7 +27,7 @@ class Pkg(ConanFile):
 
         # I'm wondering if we can avoid this since it can take a non trivial amount of time on fat SDKs
         shutil.copytree(src=pkg_folder, dst=self.package_folder, dirs_exist_ok=True, ignore_dangling_symlinks=True)
-        self.output.info(f'Relocating SDk package')
+        self.output.info(f'Relocating SDK package')
 
         # Run the relocation script, telling it where to relocate to with the "PACKAGE_FOLDER" environment variable.
         p = subprocess.Popen([os.path.join(self.package_folder, 'relocate_sdk.sh')],
